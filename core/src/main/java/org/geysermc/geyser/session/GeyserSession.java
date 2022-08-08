@@ -123,9 +123,9 @@ import org.geysermc.geyser.session.auth.AuthType;
 import org.geysermc.geyser.session.auth.BedrockClientData;
 import org.geysermc.geyser.session.cache.*;
 import org.geysermc.geyser.skin.FloodgateSkinUploader;
-import org.geysermc.geyser.text.ChatTypeEntry;
 import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.text.MinecraftLocale;
+import org.geysermc.geyser.text.TextDecoration;
 import org.geysermc.geyser.translator.inventory.InventoryTranslator;
 import org.geysermc.geyser.translator.text.MessageTranslator;
 import org.geysermc.geyser.util.ChunkUtils;
@@ -341,7 +341,7 @@ public class GeyserSession implements GeyserConnection, CommandSender {
      */
     private final Map<String, JavaDimension> dimensions = new Object2ObjectOpenHashMap<>(3);
 
-    private final Int2ObjectMap<ChatTypeEntry> chatTypes = new Int2ObjectOpenHashMap<>(8);
+    private final Int2ObjectMap<TextDecoration> chatTypes = new Int2ObjectOpenHashMap<>(7);
 
     @Setter
     private int breakingBlock;
@@ -563,8 +563,6 @@ public class GeyserSession implements GeyserConnection, CommandSender {
 
         this.playerEntity = new SessionPlayerEntity(this);
         collisionManager.updatePlayerBoundingBox(this.playerEntity.getPosition());
-
-        ChatTypeEntry.applyDefaults(chatTypes);
 
         this.playerInventory = new PlayerInventory();
         this.openInventory = null;
@@ -1388,14 +1386,14 @@ public class GeyserSession implements GeyserConnection, CommandSender {
      * Sends a chat message to the Java server.
      */
     public void sendChat(String message) {
-        sendDownstreamPacket(new ServerboundChatPacket(message, Instant.now().toEpochMilli(), 0L, ByteArrays.EMPTY_ARRAY, false));
+        sendDownstreamPacket(new ServerboundChatPacket(message, Instant.now().toEpochMilli(), 0L, ByteArrays.EMPTY_ARRAY, false, Collections.emptyList(), null));
     }
 
     /**
      * Sends a command to the Java server.
      */
     public void sendCommand(String command) {
-        sendDownstreamPacket(new ServerboundChatCommandPacket(command, Instant.now().toEpochMilli(), 0L, Collections.emptyMap(), false));
+        sendDownstreamPacket(new ServerboundChatCommandPacket(command, Instant.now().toEpochMilli(), 0L, Collections.emptyList(), false, Collections.emptyList(), null));
     }
 
     public void setServerRenderDistance(int renderDistance) {
@@ -1492,6 +1490,8 @@ public class GeyserSession implements GeyserConnection, CommandSender {
 
         startGamePacket.setPlayerPropertyData(NbtMap.EMPTY);
         startGamePacket.setWorldTemplateId(UUID.randomUUID());
+
+        startGamePacket.setChatRestrictionLevel(ChatRestrictionLevel.NONE);
 
         SyncedPlayerMovementSettings settings = new SyncedPlayerMovementSettings();
         settings.setMovementMode(AuthoritativeMovementMode.CLIENT);
@@ -1674,6 +1674,13 @@ public class GeyserSession implements GeyserConnection, CommandSender {
             if (gameMode == GameMode.CREATIVE) {
                 // Needed so the client doesn't attempt to take away items
                 abilities.add(Ability.INSTABUILD);
+            }
+
+            if (commandPermission == CommandPermission.OPERATOR) {
+                // Fixes a bug? since 1.19.11 where the player can change their gamemode in Bedrock settings and
+                // a packet is not sent to the server.
+                // https://github.com/GeyserMC/Geyser/issues/3191
+                abilities.add(Ability.OPERATOR_COMMANDS);
             }
 
             if (flying || spectator) {
