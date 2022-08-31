@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.geysermc</groupId>
         <artifactId>bootstrap-parent</artifactId>
-        <version>2.0.6-SNAPSHOT</version>
+        <version>2.0.7-SNAPSHOT</version>
     </parent>
     <artifactId>bootstrap-bungeecord</artifactId>
 
@@ -14,7 +14,7 @@
         <dependency>
             <groupId>org.geysermc</groupId>
             <artifactId>core</artifactId>
-            <version>2.0.6-SNAPSHOT</version>
+            <version>2.0.7-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
         <!-- Used for better working with internals without reflection -->
@@ -23,6 +23,12 @@
             <artifactId>bungeecord-proxy</artifactId>
             <version>a7c6ede</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-bungeecord</artifactId>
+            <version>${adventure-platform.version}</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
     <build>

@@ -6,10 +6,14 @@
     <parent>
         <groupId>org.geysermc</groupId>
         <artifactId>geyser-parent</artifactId>
-        <version>2.0.6-SNAPSHOT</version>
+        <version>2.0.7-SNAPSHOT</version>
     </parent>
     <artifactId>bootstrap-parent</artifactId>
     <packaging>pom</packaging>
+
+    <properties>
+        <adventure-platform.version>4.1.2</adventure-platform.version>
+    </properties>
 
     <repositories>
         <repository>
@@ -34,7 +38,7 @@
         <dependency>
             <groupId>org.geysermc</groupId>
             <artifactId>ap</artifactId>
-            <version>2.0.6-SNAPSHOT</version>
+            <version>2.0.7-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
