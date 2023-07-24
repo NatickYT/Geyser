@@ -30,13 +30,12 @@ import com.github.steveice10.mc.protocol.data.game.entity.object.FallingBlockDat
 import com.github.steveice10.mc.protocol.data.game.entity.object.ProjectileData;
 import com.github.steveice10.mc.protocol.data.game.entity.type.EntityType;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.spawn.ClientboundAddEntityPacket;
-import com.nukkitx.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3f;
 import org.geysermc.geyser.entity.EntityDefinition;
 import org.geysermc.geyser.entity.type.*;
 import org.geysermc.geyser.entity.type.player.PlayerEntity;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
 
@@ -53,7 +52,7 @@ public class JavaAddEntityTranslator extends PacketTranslator<ClientboundAddEnti
 
         EntityDefinition<?> definition = Registries.ENTITY_DEFINITIONS.get(packet.getType());
         if (definition == null) {
-            session.getGeyser().getLogger().warning(GeyserLocale.getLocaleStringLog("geyser.entity.type_null", packet.getType()));
+            session.getGeyser().getLogger().warning("Could not find an entity definition with type " + packet.getType());
             return;
         }
 

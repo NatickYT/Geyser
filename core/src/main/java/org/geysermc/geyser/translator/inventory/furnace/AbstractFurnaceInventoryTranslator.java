@@ -25,15 +25,15 @@
 
 package org.geysermc.geyser.translator.inventory.furnace;
 
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerSlotType;
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerType;
-import com.nukkitx.protocol.bedrock.packet.ContainerSetDataPacket;
-import org.geysermc.geyser.inventory.Inventory;
-import org.geysermc.geyser.session.GeyserSession;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerSlotType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerSetDataPacket;
 import org.geysermc.geyser.inventory.BedrockContainerSlot;
+import org.geysermc.geyser.inventory.Inventory;
 import org.geysermc.geyser.inventory.SlotType;
-import org.geysermc.geyser.translator.inventory.AbstractBlockInventoryTranslator;
 import org.geysermc.geyser.inventory.updater.ContainerInventoryUpdater;
+import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.translator.inventory.AbstractBlockInventoryTranslator;
 
 public abstract class AbstractFurnaceInventoryTranslator extends AbstractBlockInventoryTranslator {
     AbstractFurnaceInventoryTranslator(String javaBlockIdentifier, ContainerType containerType) {
@@ -74,7 +74,7 @@ public abstract class AbstractFurnaceInventoryTranslator extends AbstractBlockIn
             return new BedrockContainerSlot(ContainerSlotType.FURNACE_FUEL, javaSlotToBedrock(slot));
         }
         if (slot == 2) {
-            return new BedrockContainerSlot(ContainerSlotType.FURNACE_OUTPUT, javaSlotToBedrock(slot));
+            return new BedrockContainerSlot(ContainerSlotType.FURNACE_RESULT, javaSlotToBedrock(slot));
         }
         return super.javaSlotToBedrockContainer(slot);
     }

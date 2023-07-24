@@ -28,22 +28,22 @@ package org.geysermc.geyser.translator.protocol.java.level;
 import com.github.steveice10.mc.protocol.data.game.level.map.MapData;
 import com.github.steveice10.mc.protocol.data.game.level.map.MapIcon;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.level.ClientboundMapItemDataPacket;
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.protocol.bedrock.data.MapDecoration;
-import com.nukkitx.protocol.bedrock.data.MapTrackedObject;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.MapDecoration;
+import org.cloudburstmc.protocol.bedrock.data.MapTrackedObject;
+import org.geysermc.geyser.level.BedrockMapIcon;
+import org.geysermc.geyser.level.MapColor;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
-import org.geysermc.geyser.level.BedrockMapIcon;
 import org.geysermc.geyser.util.DimensionUtils;
-import org.geysermc.geyser.level.MapColor;
 
 @Translator(packet = ClientboundMapItemDataPacket.class)
 public class JavaMapItemDataTranslator extends PacketTranslator<ClientboundMapItemDataPacket> {
 
     @Override
     public void translate(GeyserSession session, ClientboundMapItemDataPacket packet) {
-        com.nukkitx.protocol.bedrock.packet.ClientboundMapItemDataPacket mapItemDataPacket = new com.nukkitx.protocol.bedrock.packet.ClientboundMapItemDataPacket();
+        org.cloudburstmc.protocol.bedrock.packet.ClientboundMapItemDataPacket mapItemDataPacket = new org.cloudburstmc.protocol.bedrock.packet.ClientboundMapItemDataPacket();
         boolean shouldStore = false;
 
         mapItemDataPacket.setUniqueMapId(packet.getMapId());
@@ -51,6 +51,8 @@ public class JavaMapItemDataTranslator extends PacketTranslator<ClientboundMapIt
         mapItemDataPacket.setLocked(packet.isLocked());
         mapItemDataPacket.setOrigin(Vector3i.ZERO); // Required since 1.19.20
         mapItemDataPacket.setScale(packet.getScale());
+        // Required as of 1.19.50
+        mapItemDataPacket.getTrackedEntityIds().add(packet.getMapId());
 
         MapData data = packet.getData();
         if (data != null) {

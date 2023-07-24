@@ -25,8 +25,8 @@
 
 package org.geysermc.geyser.session.cache;
 
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.math.vector.Vector3i;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3i;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Data;
 import lombok.Getter;
@@ -71,8 +71,9 @@ public class SkullCache {
         this.skullRenderDistanceSquared = distance * distance;
     }
 
-    public void putSkull(Vector3i position, String texturesProperty, int blockState) {
+    public void putSkull(Vector3i position, UUID uuid, String texturesProperty, int blockState) {
         Skull skull = skulls.computeIfAbsent(position, Skull::new);
+        skull.uuid = uuid;
         skull.texturesProperty = texturesProperty;
         skull.blockState = blockState;
 
@@ -201,6 +202,7 @@ public class SkullCache {
     @RequiredArgsConstructor
     @Data
     public static class Skull {
+        private UUID uuid;
         private String texturesProperty;
         private int blockState;
         private SkullPlayerEntity entity;

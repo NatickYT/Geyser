@@ -25,18 +25,21 @@
 
 package org.geysermc.geyser.entity.type.player;
 
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.protocol.bedrock.data.GameType;
-import com.nukkitx.protocol.bedrock.data.PlayerPermission;
-import com.nukkitx.protocol.bedrock.data.command.CommandPermission;
-import com.nukkitx.protocol.bedrock.data.entity.EntityData;
-import com.nukkitx.protocol.bedrock.data.entity.EntityFlag;
-import com.nukkitx.protocol.bedrock.packet.AddPlayerPacket;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.GameType;
+import org.cloudburstmc.protocol.bedrock.data.PlayerPermission;
+import org.cloudburstmc.protocol.bedrock.data.command.CommandPermission;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.protocol.bedrock.packet.AddPlayerPacket;
+import lombok.Getter;
 import org.geysermc.geyser.level.block.BlockStateValues;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.SkullCache;
 import org.geysermc.geyser.skin.SkullSkinManager;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -46,18 +49,23 @@ import java.util.concurrent.TimeUnit;
  */
 public class SkullPlayerEntity extends PlayerEntity {
 
+    @Getter
+    private UUID skullUUID;
+
+    @Getter
+    private Vector3i skullPosition;
+
     public SkullPlayerEntity(GeyserSession session, long geyserId) {
         super(session, 0, geyserId, UUID.randomUUID(), Vector3f.ZERO, Vector3f.ZERO, 0, 0, 0, "", null);
-        setPlayerList(false);
     }
 
     @Override
     protected void initializeMetadata() {
         // Deliberately do not call super
         // Set bounding box to almost nothing so the skull is able to be broken and not cause entity to cast a shadow
-        dirtyMetadata.put(EntityData.SCALE, 1.08f);
-        dirtyMetadata.put(EntityData.BOUNDING_BOX_HEIGHT, 0.001f);
-        dirtyMetadata.put(EntityData.BOUNDING_BOX_WIDTH, 0.001f);
+        dirtyMetadata.put(EntityDataTypes.SCALE, 1.08f);
+        dirtyMetadata.put(EntityDataTypes.HEIGHT, 0.001f);
+        dirtyMetadata.put(EntityDataTypes.WIDTH, 0.001f);
         setFlag(EntityFlag.CAN_SHOW_NAME, false);
         setFlag(EntityFlag.INVISIBLE, true); // Until the skin is loaded
     }
@@ -76,7 +84,7 @@ public class SkullPlayerEntity extends PlayerEntity {
         addPlayerPacket.setRotation(getBedrockRotation());
         addPlayerPacket.setMotion(motion);
         addPlayerPacket.setHand(hand);
-        addPlayerPacket.getAdventureSettings().setCommandPermission(CommandPermission.NORMAL);
+        addPlayerPacket.getAdventureSettings().setCommandPermission(CommandPermission.ANY);
         addPlayerPacket.getAdventureSettings().setPlayerPermission(PlayerPermission.MEMBER);
         addPlayerPacket.setDeviceId("");
         addPlayerPacket.setPlatformChatId("");
@@ -103,11 +111,14 @@ public class SkullPlayerEntity extends PlayerEntity {
     }
 
     public void updateSkull(SkullCache.Skull skull) {
-        if (!skull.getTexturesProperty().equals(getTexturesProperty())) {
+        skullPosition = skull.getPosition();
+
+        if (!Objects.equals(skull.getTexturesProperty(), getTexturesProperty()) || !Objects.equals(skullUUID, skull.getUuid())) {
             // Make skull invisible as we change skins
             setFlag(EntityFlag.INVISIBLE, true);
             updateBedrockMetadata();
 
+            skullUUID = skull.getUuid();
             setTexturesProperty(skull.getTexturesProperty());
 
             SkullSkinManager.requestAndHandleSkin(this, session, (skin -> session.scheduleInEventLoop(() -> {

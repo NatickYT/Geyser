@@ -25,44 +25,41 @@
 
 package org.geysermc.geyser.platform.spigot.world.manager;
 
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.nbt.NbtMap;
-import com.nukkitx.nbt.NbtMapBuilder;
-import com.nukkitx.nbt.NbtType;
+import com.github.steveice10.mc.protocol.data.game.level.block.BlockEntityInfo;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.Lectern;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.plugin.Plugin;
+import org.cloudburstmc.nbt.NbtMap;
+import org.geysermc.erosion.bukkit.BukkitLecterns;
+import org.geysermc.erosion.bukkit.BukkitUtils;
+import org.geysermc.erosion.bukkit.PickBlockUtils;
+import org.geysermc.erosion.bukkit.SchedulerUtils;
 import org.geysermc.geyser.level.GameRule;
-import org.geysermc.geyser.level.GeyserWorldManager;
+import org.geysermc.geyser.level.WorldManager;
 import org.geysermc.geyser.level.block.BlockStateValues;
-import org.geysermc.geyser.network.MinecraftProtocol;
 import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.translator.inventory.LecternInventoryTranslator;
 import org.geysermc.geyser.util.BlockEntityUtils;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
+import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * The base world manager to use when there is no supported NMS revision
  */
-public class GeyserSpigotWorldManager extends GeyserWorldManager {
-    /**
-     * The current client protocol version for ViaVersion usage.
-     */
-    protected static final int CLIENT_PROTOCOL_VERSION = MinecraftProtocol.getJavaProtocolVersion();
-
+public class GeyserSpigotWorldManager extends WorldManager {
     private final Plugin plugin;
+    private final BukkitLecterns lecterns;
 
     public GeyserSpigotWorldManager(Plugin plugin) {
         this.plugin = plugin;
+        this.lecterns = new BukkitLecterns(plugin);
     }
 
     @Override
@@ -77,11 +74,17 @@ public class GeyserSpigotWorldManager extends GeyserWorldManager {
             return BlockStateValues.JAVA_AIR_ID;
         }
 
-        return getBlockNetworkId(bukkitPlayer, world.getBlockAt(x, y, z), x, y, z);
+        return getBlockNetworkId(world.getBlockAt(x, y, z));
     }
 
-    public int getBlockNetworkId(Player player, Block block, int x, int y, int z) {
-        return BlockRegistries.JAVA_IDENTIFIERS.getOrDefault(block.getBlockData().getAsString(), BlockStateValues.JAVA_AIR_ID);
+    public int getBlockNetworkId(Block block) {
+        if (SchedulerUtils.FOLIA && !Bukkit.isOwnedByCurrentRegion(block)) {
+            // Terrible behavior, but this is basically what's always been happening behind the scenes anyway.
+            CompletableFuture<String> blockData = new CompletableFuture<>();
+            Bukkit.getRegionScheduler().execute(this.plugin, block.getLocation(), () -> blockData.complete(block.getBlockData().getAsString()));
+            return BlockRegistries.JAVA_IDENTIFIER_TO_ID.getOrDefault(blockData.join(), BlockStateValues.JAVA_AIR_ID);
+        }
+        return BlockRegistries.JAVA_IDENTIFIER_TO_ID.getOrDefault(block.getBlockData().getAsString(), BlockStateValues.JAVA_AIR_ID);
     }
 
     @Override
@@ -90,80 +93,73 @@ public class GeyserSpigotWorldManager extends GeyserWorldManager {
     }
 
     @Override
-    public NbtMap getLecternDataAt(GeyserSession session, int x, int y, int z, boolean isChunkLoad) {
-        // Run as a task to prevent async issues
-        Runnable lecternInfoGet = () -> {
-            Player bukkitPlayer;
-            if ((bukkitPlayer = Bukkit.getPlayer(session.getPlayerEntity().getUsername())) == null) {
-                return;
-            }
-
-            Block block = bukkitPlayer.getWorld().getBlockAt(x, y, z);
-            if (!(block.getState() instanceof Lectern lectern)) {
-                session.getGeyser().getLogger().error("Lectern expected at: " + Vector3i.from(x, y, z).toString() + " but was not! " + block.toString());
-                return;
-            }
-
-            ItemStack itemStack = lectern.getInventory().getItem(0);
-            if (itemStack == null || !(itemStack.getItemMeta() instanceof BookMeta bookMeta)) {
-                if (!isChunkLoad) {
-                    // We need to update the lectern since it's not going to be updated otherwise
-                    BlockEntityUtils.updateBlockEntity(session, LecternInventoryTranslator.getBaseLecternTag(x, y, z, 0).build(), Vector3i.from(x, y, z));
-                }
-                // We don't care; return
-                return;
-            }
-
-            // On the count: allow the book to show/open even there are no pages. We know there is a book here, after all, and this matches Java behavior
-            boolean hasBookPages = bookMeta.getPageCount() > 0;
-            NbtMapBuilder lecternTag = LecternInventoryTranslator.getBaseLecternTag(x, y, z, hasBookPages ? bookMeta.getPageCount() : 1);
-            lecternTag.putInt("page", lectern.getPage() / 2);
-            NbtMapBuilder bookTag = NbtMap.builder()
-                    .putByte("Count", (byte) itemStack.getAmount())
-                    .putShort("Damage", (short) 0)
-                    .putString("Name", "minecraft:writable_book");
-            List<NbtMap> pages = new ArrayList<>(bookMeta.getPageCount());
-            if (hasBookPages) {
-                for (String page : bookMeta.getPages()) {
-                    NbtMapBuilder pageBuilder = NbtMap.builder()
-                            .putString("photoname", "")
-                            .putString("text", page);
-                    pages.add(pageBuilder.build());
-                }
-            } else {
-                // Empty page
-                NbtMapBuilder pageBuilder = NbtMap.builder()
-                        .putString("photoname", "")
-                        .putString("text", "");
-                pages.add(pageBuilder.build());
-            }
-            
-            bookTag.putCompound("tag", NbtMap.builder().putList("pages", NbtType.COMPOUND, pages).build());
-            lecternTag.putCompound("book", bookTag.build());
-            NbtMap blockEntityTag = lecternTag.build();
-            BlockEntityUtils.updateBlockEntity(session, blockEntityTag, Vector3i.from(x, y, z));
-        };
-
-        if (isChunkLoad) {
-            // Delay to ensure the chunk is sent first, and then the lectern data
-            Bukkit.getScheduler().runTaskLater(this.plugin, lecternInfoGet, 5);
-        } else {
-            Bukkit.getScheduler().runTask(this.plugin, lecternInfoGet);
+    public void sendLecternData(GeyserSession session, int x, int y, int z) {
+        Player bukkitPlayer;
+        if ((bukkitPlayer = Bukkit.getPlayer(session.getPlayerEntity().getUsername())) == null) {
+            return;
         }
-        return LecternInventoryTranslator.getBaseLecternTag(x, y, z, 0).build(); // Will be updated later
+
+        Block block = bukkitPlayer.getWorld().getBlockAt(x, y, z);
+        // Run as a task to prevent async issues
+        SchedulerUtils.runTask(this.plugin, () -> sendLecternData(session, block, false), block);
+    }
+
+    public void sendLecternData(GeyserSession session, int x, int z, List<BlockEntityInfo> blockEntityInfos) {
+        Player bukkitPlayer;
+        if ((bukkitPlayer = Bukkit.getPlayer(session.getPlayerEntity().getUsername())) == null) {
+            return;
+        }
+        if (SchedulerUtils.FOLIA) {
+            Chunk chunk = getChunk(bukkitPlayer.getWorld(), x, z);
+            if (chunk == null) {
+                return;
+            }
+            Bukkit.getRegionScheduler().execute(this.plugin, bukkitPlayer.getWorld(), x, z, () ->
+                sendLecternData(session, chunk, blockEntityInfos));
+        } else {
+            Bukkit.getScheduler().runTask(this.plugin, () -> {
+                Chunk chunk = getChunk(bukkitPlayer.getWorld(), x, z);
+                if (chunk == null) {
+                    return;
+                }
+                sendLecternData(session, chunk, blockEntityInfos);
+            });
+        }
+    }
+
+    private Chunk getChunk(World world, int x, int z) {
+        if (!world.isChunkLoaded(x, z)) {
+            return null;
+        }
+        return world.getChunkAt(x, z);
+    }
+
+    private void sendLecternData(GeyserSession session, Chunk chunk, List<BlockEntityInfo> blockEntityInfos) {
+        for (int i = 0; i < blockEntityInfos.size(); i++) {
+            BlockEntityInfo info = blockEntityInfos.get(i);
+            Block block = chunk.getBlock(info.getX(), info.getY(), info.getZ());
+            sendLecternData(session, block, true);
+        }
+    }
+
+    private void sendLecternData(GeyserSession session, Block block, boolean isChunkLoad) {
+        NbtMap blockEntityTag = this.lecterns.getLecternData(block, isChunkLoad);
+        if (blockEntityTag != null) {
+            BlockEntityUtils.updateBlockEntity(session, blockEntityTag, BukkitUtils.getVector(block.getLocation()));
+        }
     }
 
     @Override
-    public boolean shouldExpectLecternHandled() {
+    public boolean shouldExpectLecternHandled(GeyserSession session) {
         return true;
     }
 
-    public Boolean getGameRuleBool(GeyserSession session, GameRule gameRule) {
+    public boolean getGameRuleBool(GeyserSession session, GameRule gameRule) {
         String value = Bukkit.getPlayer(session.getPlayerEntity().getUsername()).getWorld().getGameRuleValue(gameRule.getJavaID());
         if (!value.isEmpty()) {
             return Boolean.parseBoolean(value);
         }
-        return (Boolean) gameRule.getDefaultValue();
+        return gameRule.getDefaultBooleanValue();
     }
 
     @Override
@@ -172,7 +168,7 @@ public class GeyserSpigotWorldManager extends GeyserWorldManager {
         if (!value.isEmpty()) {
             return Integer.parseInt(value);
         }
-        return (int) gameRule.getDefaultValue();
+        return gameRule.getDefaultIntValue();
     }
 
     @Override
@@ -180,9 +176,23 @@ public class GeyserSpigotWorldManager extends GeyserWorldManager {
         return Bukkit.getPlayer(session.getPlayerEntity().getUsername()).hasPermission(permission);
     }
 
+    @Nonnull
+    @Override
+    public CompletableFuture<@Nullable CompoundTag> getPickItemNbt(GeyserSession session, int x, int y, int z, boolean addNbtData) {
+        CompletableFuture<@Nullable CompoundTag> future = new CompletableFuture<>();
+        Player bukkitPlayer;
+        if ((bukkitPlayer = Bukkit.getPlayer(session.getPlayerEntity().getUuid())) == null) {
+            future.complete(null);
+            return future;
+        }
+        Block block = bukkitPlayer.getWorld().getBlockAt(x, y, z);
+        // Paper 1.19.3 complains about async access otherwise.
+        // java.lang.IllegalStateException: Tile is null, asynchronous access?
+        SchedulerUtils.runTask(this.plugin, () -> future.complete(PickBlockUtils.pickBlock(block)), block);
+        return future;
+    }
+
     /**
-     * This must be set to true if we are pre-1.13, and {@link BlockData#getAsString() does not exist}.
-     *
      * This should be set to true if we are post-1.13 but before the latest version, and we should convert the old block state id
      * to the current one.
      *

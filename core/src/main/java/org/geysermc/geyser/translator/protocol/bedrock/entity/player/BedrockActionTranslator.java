@@ -26,22 +26,25 @@
 package org.geysermc.geyser.translator.protocol.bedrock.entity.player;
 
 import com.github.steveice10.mc.protocol.data.game.entity.object.Direction;
-import com.github.steveice10.mc.protocol.data.game.entity.player.*;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundInteractPacket;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundPlayerAbilitiesPacket;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundPlayerActionPacket;
-import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundPlayerCommandPacket;
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.protocol.bedrock.data.LevelEventType;
-import com.nukkitx.protocol.bedrock.data.PlayerActionType;
-import com.nukkitx.protocol.bedrock.data.entity.EntityEventType;
-import com.nukkitx.protocol.bedrock.data.entity.EntityFlag;
-import com.nukkitx.protocol.bedrock.packet.*;
+import com.github.steveice10.mc.protocol.data.game.entity.player.GameMode;
+import com.github.steveice10.mc.protocol.data.game.entity.player.Hand;
+import com.github.steveice10.mc.protocol.data.game.entity.player.InteractAction;
+import com.github.steveice10.mc.protocol.data.game.entity.player.PlayerAction;
+import com.github.steveice10.mc.protocol.data.game.entity.player.PlayerState;
+import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.*;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.data.LevelEvent;
+import org.cloudburstmc.protocol.bedrock.data.PlayerActionType;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityEventType;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.protocol.bedrock.packet.*;
 import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.entity.type.ItemFrameEntity;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
+import org.geysermc.geyser.level.block.BlockStateValues;
 import org.geysermc.geyser.registry.BlockRegistries;
+import org.geysermc.geyser.registry.type.BlockMapping;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -74,6 +77,12 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 attributesPacket.setRuntimeEntityId(entity.getGeyserId());
                 attributesPacket.getAttributes().addAll(entity.getAttributes().values());
                 session.sendUpstreamPacket(attributesPacket);
+
+                // Bounding box must be sent after a player dies and respawns since 1.19.40
+                entity.updateBoundingBox();
+
+                // Needed here since 1.19.81 for dimension switching
+                session.getEntityCache().updateBossBars();
                 break;
             case START_SWIMMING:
                 if (!entity.getFlag(EntityFlag.SWIMMING)) {
@@ -128,7 +137,7 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 break;
             case DROP_ITEM:
                 ServerboundPlayerActionPacket dropItemPacket = new ServerboundPlayerActionPacket(PlayerAction.DROP_ITEM,
-                        vector, Direction.VALUES[packet.getFace()], session.getWorldCache().nextPredictionSequence());
+                        vector, Direction.VALUES[packet.getFace()], 0);
                 session.sendDownstreamPacket(dropItemPacket);
                 break;
             case STOP_SLEEP:
@@ -140,7 +149,7 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 if (session.getGameMode() != GameMode.CREATIVE) {
                     int blockState = session.getGeyser().getWorldManager().getBlockAt(session, vector);
                     LevelEventPacket startBreak = new LevelEventPacket();
-                    startBreak.setType(LevelEventType.BLOCK_START_BREAK);
+                    startBreak.setType(LevelEvent.BLOCK_START_BREAK);
                     startBreak.setPosition(vector.toFloat());
                     double breakTime = BlockUtils.getSessionBreakTime(session, BlockRegistries.JAVA_BLOCKS.get(blockState)) * 20;
                     startBreak.setData((int) (65535 / breakTime));
@@ -151,7 +160,7 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 // Account for fire - the client likes to hit the block behind.
                 Vector3i fireBlockPos = BlockUtils.getBlockPosition(vector, packet.getFace());
                 int blockUp = session.getGeyser().getWorldManager().getBlockAt(session, fireBlockPos);
-                String identifier = BlockRegistries.JAVA_IDENTIFIERS.get().get(blockUp);
+                String identifier = BlockRegistries.JAVA_BLOCKS.getOrDefault(blockUp, BlockMapping.AIR).getJavaIdentifier();
                 if (identifier.startsWith("minecraft:fire") || identifier.startsWith("minecraft:soul_fire")) {
                     ServerboundPlayerActionPacket startBreakingPacket = new ServerboundPlayerActionPacket(PlayerAction.START_DIGGING, fireBlockPos,
                             Direction.VALUES[packet.getFace()], session.getWorldCache().nextPredictionSequence());
@@ -171,19 +180,19 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 }
                 int breakingBlock = session.getBreakingBlock();
                 if (breakingBlock == -1) {
-                    break;
+                    breakingBlock = BlockStateValues.JAVA_AIR_ID;
                 }
 
                 Vector3f vectorFloat = vector.toFloat();
                 LevelEventPacket continueBreakPacket = new LevelEventPacket();
-                continueBreakPacket.setType(LevelEventType.PARTICLE_CRACK_BLOCK);
+                continueBreakPacket.setType(LevelEvent.PARTICLE_CRACK_BLOCK);
                 continueBreakPacket.setData((session.getBlockMappings().getBedrockBlockId(breakingBlock)) | (packet.getFace() << 24));
                 continueBreakPacket.setPosition(vectorFloat);
                 session.sendUpstreamPacket(continueBreakPacket);
 
                 // Update the break time in the event that player conditions changed (jumping, effects applied)
                 LevelEventPacket updateBreak = new LevelEventPacket();
-                updateBreak.setType(LevelEventType.BLOCK_UPDATE_BREAK);
+                updateBreak.setType(LevelEvent.BLOCK_UPDATE_BREAK);
                 updateBreak.setPosition(vectorFloat);
                 double breakTime = BlockUtils.getSessionBreakTime(session, BlockRegistries.JAVA_BLOCKS.get(breakingBlock)) * 20;
                 updateBreak.setData((int) (65535 / breakTime));
@@ -202,10 +211,10 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                     }
                 }
 
-                ServerboundPlayerActionPacket abortBreakingPacket = new ServerboundPlayerActionPacket(PlayerAction.CANCEL_DIGGING, vector, Direction.DOWN, session.getWorldCache().nextPredictionSequence());
+                ServerboundPlayerActionPacket abortBreakingPacket = new ServerboundPlayerActionPacket(PlayerAction.CANCEL_DIGGING, vector, Direction.DOWN, 0);
                 session.sendDownstreamPacket(abortBreakingPacket);
                 LevelEventPacket stopBreak = new LevelEventPacket();
-                stopBreak.setType(LevelEventType.BLOCK_STOP_BREAK);
+                stopBreak.setType(LevelEvent.BLOCK_STOP_BREAK);
                 stopBreak.setPosition(vector.toFloat());
                 stopBreak.setData(0);
                 session.setBreakingBlock(-1);
@@ -224,11 +233,22 @@ public class BedrockActionTranslator extends PacketTranslator<PlayerActionPacket
                 attributesPacket.setRuntimeEntityId(entity.getGeyserId());
                 attributesPacket.getAttributes().addAll(entity.getAttributes().values());
                 session.sendUpstreamPacket(attributesPacket);
-
-                session.getEntityCache().updateBossBars();
                 break;
             case JUMP:
                 entity.setOnGround(false); // Increase block break time while jumping
+                break;
+            case MISSED_SWING:
+                // TODO Re-evaluate after pre-1.20.10 is supported?
+                if (session.getArmAnimationTicks() == -1) {
+                    session.sendDownstreamPacket(new ServerboundSwingPacket(Hand.MAIN_HAND));
+                    session.activateArmAnimationTicking();
+
+                    // Send packet to Bedrock so it knows
+                    AnimatePacket animatePacket = new AnimatePacket();
+                    animatePacket.setRuntimeEntityId(session.getPlayerEntity().getGeyserId());
+                    animatePacket.setAction(AnimatePacket.Action.SWING_ARM);
+                    session.sendUpstreamPacket(animatePacket);
+                }
                 break;
         }
     }

@@ -29,12 +29,13 @@ import com.github.steveice10.mc.protocol.data.game.inventory.ContainerType;
 import com.github.steveice10.opennbt.tag.builtin.ByteTag;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.nukkitx.math.vector.Vector3i;
+import org.cloudburstmc.math.vector.Vector3i;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.cloudburstmc.protocol.bedrock.data.definitions.ItemDefinition;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.registry.type.ItemMapping;
+import org.geysermc.geyser.item.Items;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.inventory.item.ItemTranslator;
 import org.jetbrains.annotations.Range;
@@ -90,6 +91,10 @@ public abstract class Inventory {
     @Setter
     private boolean pending = false;
 
+    @Getter
+    @Setter
+    private boolean displayed = false;
+
     protected Inventory(int id, int size, ContainerType containerType) {
         this("Inventory", id, size, containerType);
     }
@@ -131,7 +136,7 @@ public abstract class Inventory {
         items[slot] = newItem;
 
         // Lodestone caching
-        if (newItem.getJavaId() == session.getItemMappings().getStoredItems().compass().getJavaId()) {
+        if (newItem.asItem() == Items.COMPASS) {
             CompoundTag nbt = newItem.getNbt();
             if (nbt != null) {
                 Tag lodestoneTag = nbt.get("LodestoneTracked");
@@ -144,9 +149,9 @@ public abstract class Inventory {
 
     protected void updateItemNetId(GeyserItemStack oldItem, GeyserItemStack newItem, GeyserSession session) {
         if (!newItem.isEmpty()) {
-            ItemMapping oldMapping = ItemTranslator.getBedrockItemMapping(session, oldItem);
-            ItemMapping newMapping = ItemTranslator.getBedrockItemMapping(session, newItem);
-            if (oldMapping.getBedrockId() == newMapping.getBedrockId()) {
+            ItemDefinition oldMapping = ItemTranslator.getBedrockItemDefinition(session, oldItem);
+            ItemDefinition newMapping = ItemTranslator.getBedrockItemDefinition(session, newItem);
+            if (oldMapping.equals(newMapping)) {
                 newItem.setNetId(oldItem.getNetId());
             } else {
                 newItem.setNetId(session.getNextItemNetId());

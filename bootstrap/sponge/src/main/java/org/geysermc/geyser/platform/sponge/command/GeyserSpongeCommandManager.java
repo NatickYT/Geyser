@@ -25,25 +25,37 @@
 
 package org.geysermc.geyser.platform.sponge.command;
 
+import net.kyori.adventure.text.Component;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.command.CommandManager;
+import org.geysermc.geyser.command.GeyserCommandManager;
+import org.geysermc.geyser.translator.text.MessageTranslator;
 import org.spongepowered.api.Sponge;
-import org.spongepowered.api.command.CommandMapping;
-import org.spongepowered.api.text.Text;
+import org.spongepowered.api.command.CommandCause;
+import org.spongepowered.api.command.manager.CommandMapping;
 
-public class GeyserSpongeCommandManager extends CommandManager {
-    private final org.spongepowered.api.command.CommandManager handle;
+import java.util.Optional;
 
-    public GeyserSpongeCommandManager(org.spongepowered.api.command.CommandManager handle, GeyserImpl geyser) {
+public class GeyserSpongeCommandManager extends GeyserCommandManager {
+
+    public GeyserSpongeCommandManager(GeyserImpl geyser) {
         super(geyser);
-
-        this.handle = handle;
     }
 
     @Override
-    public String getDescription(String command) {
-        return handle.get(command).map(CommandMapping::getCallable)
-                .map(callable -> callable.getShortDescription(Sponge.getServer().getConsole()).orElse(Text.EMPTY))
-                .orElse(Text.EMPTY).toPlain();
+    public String description(String command) {
+        if (!Sponge.isServerAvailable()) {
+            return "";
+        }
+
+        // Note: The command manager may be replaced at any point during the game lifecycle
+        return Sponge.server().commandManager().commandMapping(command)
+            .map(this::description)
+            .map(Optional::get)
+            .map(MessageTranslator::convertMessage)
+            .orElse("");
+    }
+
+    public Optional<Component> description(CommandMapping mapping) {
+        return mapping.registrar().shortDescription(CommandCause.create(), mapping);
     }
 }

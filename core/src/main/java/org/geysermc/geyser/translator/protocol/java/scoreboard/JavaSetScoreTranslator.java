@@ -28,22 +28,24 @@ package org.geysermc.geyser.translator.protocol.java.scoreboard;
 import com.github.steveice10.mc.protocol.data.game.scoreboard.ScoreboardAction;
 import com.github.steveice10.mc.protocol.data.game.scoreboard.ScoreboardPosition;
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.scoreboard.ClientboundSetScorePacket;
-import com.nukkitx.protocol.bedrock.data.entity.EntityData;
-import com.nukkitx.protocol.bedrock.packet.SetEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.packet.SetEntityDataPacket;
 import org.geysermc.geyser.GeyserImpl;
 import org.geysermc.geyser.GeyserLogger;
 import org.geysermc.geyser.entity.type.player.PlayerEntity;
-import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.session.cache.WorldCache;
-import org.geysermc.geyser.translator.protocol.PacketTranslator;
-import org.geysermc.geyser.translator.protocol.Translator;
 import org.geysermc.geyser.scoreboard.Objective;
 import org.geysermc.geyser.scoreboard.Scoreboard;
 import org.geysermc.geyser.scoreboard.ScoreboardUpdater;
+import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.cache.WorldCache;
 import org.geysermc.geyser.text.GeyserLocale;
+import org.geysermc.geyser.translator.protocol.PacketTranslator;
+import org.geysermc.geyser.translator.protocol.Translator;
 
 @Translator(packet = ClientboundSetScorePacket.class)
 public class JavaSetScoreTranslator extends PacketTranslator<ClientboundSetScorePacket> {
+    private static final boolean SHOW_SCOREBOARD_LOGS = Boolean.parseBoolean(System.getProperty("Geyser.ShowScoreboardLogs", "true"));
+
     private final GeyserLogger logger;
 
     public JavaSetScoreTranslator() {
@@ -58,7 +60,9 @@ public class JavaSetScoreTranslator extends PacketTranslator<ClientboundSetScore
 
         Objective objective = scoreboard.getObjective(packet.getObjective());
         if (objective == null && packet.getAction() != ScoreboardAction.REMOVE) {
-            logger.info(GeyserLocale.getLocaleStringLog("geyser.network.translator.score.failed_objective", packet.getObjective()));
+            if (SHOW_SCOREBOARD_LOGS) {
+                logger.info(GeyserLocale.getLocaleStringLog("geyser.network.translator.score.failed_objective", packet.getObjective()));
+            }
             return;
         }
 
@@ -117,10 +121,10 @@ public class JavaSetScoreTranslator extends PacketTranslator<ClientboundSetScore
         String displayString = count + " " + objective.getDisplayName();
 
         // Of note: unlike Bedrock, if there is an objective in the below name slot, everyone has a display
-        entity.getDirtyMetadata().put(EntityData.SCORE_TAG, displayString);
+        entity.getDirtyMetadata().put(EntityDataTypes.SCORE, displayString);
         SetEntityDataPacket entityDataPacket = new SetEntityDataPacket();
         entityDataPacket.setRuntimeEntityId(entity.getGeyserId());
-        entityDataPacket.getMetadata().put(EntityData.SCORE_TAG, displayString);
+        entityDataPacket.getMetadata().put(EntityDataTypes.SCORE, displayString);
         session.sendUpstreamPacket(entityDataPacket);
     }
 

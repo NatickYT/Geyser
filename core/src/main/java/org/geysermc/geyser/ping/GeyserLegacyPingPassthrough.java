@@ -27,12 +27,12 @@ package org.geysermc.geyser.ping;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.nukkitx.nbt.util.VarInts;
+import org.cloudburstmc.nbt.util.VarInts;
 import io.netty.handler.codec.haproxy.HAProxyCommand;
 import io.netty.handler.codec.haproxy.HAProxyProxiedProtocol;
 import io.netty.util.NetUtil;
 import org.geysermc.geyser.GeyserImpl;
-import org.geysermc.geyser.network.MinecraftProtocol;
+import org.geysermc.geyser.network.GameProtocol;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -77,14 +77,15 @@ public class GeyserLegacyPingPassthrough implements IGeyserPingPassthrough, Runn
     @Override
     public void run() {
         try (Socket socket = new Socket()) {
-            String address = geyser.getConfig().getRemote().getAddress();
-            int port = geyser.getConfig().getRemote().getPort();
-            socket.connect(new InetSocketAddress(address, port), 5000);
+            String address = geyser.getConfig().getRemote().address();
+            int port = geyser.getConfig().getRemote().port();
+            InetSocketAddress endpoint = new InetSocketAddress(address, port);
+            socket.connect(endpoint, 5000);
 
             ByteArrayOutputStream byteArrayStream = new ByteArrayOutputStream();
             try (DataOutputStream handshake = new DataOutputStream(byteArrayStream)) {
                 handshake.write(0x0);
-                VarInts.writeUnsignedInt(handshake, MinecraftProtocol.getJavaProtocolVersion());
+                VarInts.writeUnsignedInt(handshake, GameProtocol.getJavaProtocolVersion());
                 VarInts.writeUnsignedInt(handshake, address.length());
                 handshake.writeBytes(address);
                 handshake.writeShort(port);
@@ -103,7 +104,8 @@ public class GeyserLegacyPingPassthrough implements IGeyserPingPassthrough, Runn
                             HAProxyProxiedProtocol.TCP4.byteValue() : HAProxyProxiedProtocol.TCP6.byteValue());
                     byte[] srcAddrBytes = NetUtil.createByteArrayFromIpAddressString(
                             ((InetSocketAddress) socket.getLocalSocketAddress()).getAddress().getHostAddress());
-                    byte[] dstAddrBytes = NetUtil.createByteArrayFromIpAddressString(address);
+                    byte[] dstAddrBytes = NetUtil.createByteArrayFromIpAddressString(
+                            endpoint.getAddress().getHostAddress());
                     dataOutputStream.writeShort(srcAddrBytes.length + dstAddrBytes.length + 4);
                     dataOutputStream.write(srcAddrBytes);
                     dataOutputStream.write(dstAddrBytes);

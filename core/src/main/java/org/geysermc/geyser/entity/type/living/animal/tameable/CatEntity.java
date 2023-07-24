@@ -29,13 +29,14 @@ import com.github.steveice10.mc.protocol.data.game.entity.metadata.type.BooleanE
 import com.github.steveice10.mc.protocol.data.game.entity.metadata.type.ByteEntityMetadata;
 import com.github.steveice10.mc.protocol.data.game.entity.metadata.type.IntEntityMetadata;
 import com.github.steveice10.mc.protocol.data.game.entity.player.Hand;
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.protocol.bedrock.data.entity.EntityData;
-import com.nukkitx.protocol.bedrock.data.entity.EntityFlag;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityDataTypes;
+import org.cloudburstmc.protocol.bedrock.data.entity.EntityFlag;
 import org.geysermc.geyser.entity.EntityDefinition;
 import org.geysermc.geyser.inventory.GeyserItemStack;
+import org.geysermc.geyser.item.Items;
+import org.geysermc.geyser.item.type.Item;
 import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.registry.type.ItemMapping;
 import org.geysermc.geyser.util.InteractionResult;
 import org.geysermc.geyser.util.InteractiveTag;
 
@@ -48,6 +49,13 @@ public class CatEntity extends TameableEntity {
 
     public CatEntity(GeyserSession session, int entityId, long geyserId, UUID uuid, EntityDefinition<?> definition, Vector3f position, Vector3f motion, float yaw, float pitch, float headYaw) {
         super(session, entityId, geyserId, uuid, definition, position, motion, yaw, pitch, headYaw);
+    }
+
+    @Override
+    protected void initializeMetadata() {
+        super.initializeMetadata();
+        // Default value (minecraft:black).
+        dirtyMetadata.put(EntityDataTypes.VARIANT, 1);
     }
 
     @Override
@@ -70,7 +78,7 @@ public class CatEntity extends TameableEntity {
         super.setTameableFlags(entityMetadata);
         // Update collar color if tamed
         if (getFlag(EntityFlag.TAMED)) {
-            dirtyMetadata.put(EntityData.COLOR, collarColor);
+            dirtyMetadata.put(EntityDataTypes.COLOR, collarColor);
         }
     }
 
@@ -84,7 +92,7 @@ public class CatEntity extends TameableEntity {
             case 10 -> 9;
             default -> metadataValue;
         };
-        dirtyMetadata.put(EntityData.VARIANT, variantColor);
+        dirtyMetadata.put(EntityDataTypes.VARIANT, variantColor);
     }
 
     public void setResting(BooleanEntityMetadata entityMetadata) {
@@ -95,18 +103,18 @@ public class CatEntity extends TameableEntity {
         collarColor = (byte) entityMetadata.getPrimitiveValue();
         // Needed or else wild cats are a red color
         if (getFlag(EntityFlag.TAMED)) {
-            dirtyMetadata.put(EntityData.COLOR, collarColor);
+            dirtyMetadata.put(EntityDataTypes.COLOR, collarColor);
         }
     }
 
     @Override
-    public boolean canEat(String javaIdentifierStripped, ItemMapping mapping) {
-        return javaIdentifierStripped.equals("cod") || javaIdentifierStripped.equals("salmon");
+    public boolean canEat(Item item) {
+        return item == Items.COD || item == Items.SALMON;
     }
 
     @Nonnull
     @Override
-    protected InteractiveTag testMobInteraction(Hand hand, @Nonnull GeyserItemStack itemInHand) {
+    protected InteractiveTag testMobInteraction(@Nonnull Hand hand, @Nonnull GeyserItemStack itemInHand) {
         boolean tamed = getFlag(EntityFlag.TAMED);
         if (tamed && ownerBedrockId == session.getPlayerEntity().getGeyserId()) {
             // Toggle sitting
@@ -118,7 +126,7 @@ public class CatEntity extends TameableEntity {
 
     @Nonnull
     @Override
-    protected InteractionResult mobInteract(Hand hand, @Nonnull GeyserItemStack itemInHand) {
+    protected InteractionResult mobInteract(@Nonnull Hand hand, @Nonnull GeyserItemStack itemInHand) {
         boolean tamed = getFlag(EntityFlag.TAMED);
         if (tamed && ownerBedrockId == session.getPlayerEntity().getGeyserId()) {
             return InteractionResult.SUCCESS;

@@ -25,7 +25,7 @@
 
 package org.geysermc.geyser;
 
-import org.geysermc.geyser.command.CommandManager;
+import org.geysermc.geyser.command.GeyserCommandManager;
 import org.geysermc.geyser.configuration.GeyserConfiguration;
 import org.geysermc.geyser.dump.BootstrapDumpInfo;
 import org.geysermc.geyser.level.GeyserWorldManager;
@@ -72,7 +72,7 @@ public interface GeyserBootstrap {
      *
      * @return The current CommandManager
      */
-    CommandManager getGeyserCommandManager();
+    GeyserCommandManager getGeyserCommandManager();
 
     /**
      * Returns the current PingPassthrough manager
@@ -158,4 +158,20 @@ public interface GeyserBootstrap {
         }
         return stream;
     }
+
+    /**
+     * @return the bind address being used by the Java server.
+     */
+    @Nonnull
+    String getServerBindAddress();
+
+    /**
+     * @return the listening port being used by the Java server. -1 if can't be found
+     */
+    int getServerPort();
+
+    /**
+     * Tests if Floodgate is installed, loads the Floodgate key if so, and returns the result of Floodgate installed.
+     */
+    boolean testFloodgatePluginPresent();
 }

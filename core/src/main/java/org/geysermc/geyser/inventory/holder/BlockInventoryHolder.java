@@ -25,20 +25,21 @@
 
 package org.geysermc.geyser.inventory.holder;
 
-import com.google.common.collect.ImmutableSet;
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.nbt.NbtMap;
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerType;
-import com.nukkitx.protocol.bedrock.packet.BlockEntityDataPacket;
-import com.nukkitx.protocol.bedrock.packet.ContainerClosePacket;
-import com.nukkitx.protocol.bedrock.packet.ContainerOpenPacket;
-import com.nukkitx.protocol.bedrock.packet.UpdateBlockPacket;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.packet.BlockEntityDataPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerClosePacket;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerOpenPacket;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
 import org.geysermc.geyser.inventory.Container;
 import org.geysermc.geyser.inventory.Inventory;
 import org.geysermc.geyser.registry.BlockRegistries;
+import org.geysermc.geyser.registry.type.BlockMapping;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.inventory.InventoryTranslator;
 import org.geysermc.geyser.util.BlockUtils;
+import org.geysermc.geyser.util.InventoryUtils;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -57,48 +58,53 @@ public class BlockInventoryHolder extends InventoryHolder {
     private final Set<String> validBlocks;
 
     public BlockInventoryHolder(String javaBlockIdentifier, ContainerType containerType, String... validBlocks) {
-        this.defaultJavaBlockState = BlockRegistries.JAVA_IDENTIFIERS.get(javaBlockIdentifier);
+        this.defaultJavaBlockState = BlockRegistries.JAVA_IDENTIFIER_TO_ID.get().getInt(javaBlockIdentifier);
         this.containerType = containerType;
         if (validBlocks != null) {
             Set<String> validBlocksTemp = new HashSet<>(validBlocks.length + 1);
             Collections.addAll(validBlocksTemp, validBlocks);
             validBlocksTemp.add(BlockUtils.getCleanIdentifier(javaBlockIdentifier));
-            this.validBlocks = ImmutableSet.copyOf(validBlocksTemp);
+            this.validBlocks = Set.copyOf(validBlocksTemp);
         } else {
             this.validBlocks = Collections.singleton(BlockUtils.getCleanIdentifier(javaBlockIdentifier));
         }
     }
 
     @Override
-    public void prepareInventory(InventoryTranslator translator, GeyserSession session, Inventory inventory) {
+    public boolean prepareInventory(InventoryTranslator translator, GeyserSession session, Inventory inventory) {
         // Check to see if there is an existing block we can use that the player just selected.
         // First, verify that the player's position has not changed, so we don't try to select a block wildly out of range.
         // (This could be a virtual inventory that the player is opening)
         if (checkInteractionPosition(session)) {
             // Then, check to see if the interacted block is valid for this inventory by ensuring the block state identifier is valid
             int javaBlockId = session.getGeyser().getWorldManager().getBlockAt(session, session.getLastInteractionBlockPosition());
-            String[] javaBlockString = BlockRegistries.JAVA_IDENTIFIERS.get().getOrDefault(javaBlockId, "minecraft:air").split("\\[");
+            String[] javaBlockString = BlockRegistries.JAVA_BLOCKS.getOrDefault(javaBlockId, BlockMapping.AIR).getJavaIdentifier().split("\\[");
             if (isValidBlock(javaBlockString)) {
                 // We can safely use this block
                 inventory.setHolderPosition(session.getLastInteractionBlockPosition());
                 ((Container) inventory).setUsingRealBlock(true, javaBlockString[0]);
                 setCustomName(session, session.getLastInteractionBlockPosition(), inventory, javaBlockId);
-                return;
+
+                return true;
             }
         }
 
-        // Otherwise, time to conjure up a fake block!
-        Vector3i position = session.getPlayerEntity().getPosition().toInt();
-        position = position.add(Vector3i.UP);
+        Vector3i position = InventoryUtils.findAvailableWorldSpace(session);
+        if (position == null) {
+            return false;
+        }
+
         UpdateBlockPacket blockPacket = new UpdateBlockPacket();
         blockPacket.setDataLayer(0);
         blockPacket.setBlockPosition(position);
-        blockPacket.setRuntimeId(session.getBlockMappings().getBedrockBlockId(defaultJavaBlockState));
+        blockPacket.setDefinition(session.getBlockMappings().getBedrockBlock(defaultJavaBlockState));
         blockPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
         session.sendUpstreamPacket(blockPacket);
         inventory.setHolderPosition(position);
 
         setCustomName(session, position, inventory, defaultJavaBlockState);
+
+        return true;
     }
 
     /**
@@ -147,7 +153,7 @@ public class BlockInventoryHolder extends InventoryHolder {
             // But send a container close packet because we aren't destroying the original.
             ContainerClosePacket packet = new ContainerClosePacket();
             packet.setId((byte) inventory.getBedrockId());
-            packet.setUnknownBool0(true); //TODO needs to be changed in Protocol to "server-side" or something
+            packet.setServerInitiated(true);
             session.sendUpstreamPacket(packet);
             return;
         }
@@ -157,7 +163,7 @@ public class BlockInventoryHolder extends InventoryHolder {
         UpdateBlockPacket blockPacket = new UpdateBlockPacket();
         blockPacket.setDataLayer(0);
         blockPacket.setBlockPosition(holderPos);
-        blockPacket.setRuntimeId(session.getBlockMappings().getBedrockBlockId(realBlock));
+        blockPacket.setDefinition(session.getBlockMappings().getBedrockBlock(realBlock));
         blockPacket.getFlags().addAll(UpdateBlockPacket.FLAG_ALL_PRIORITY);
         session.sendUpstreamPacket(blockPacket);
     }

@@ -26,7 +26,7 @@
 package org.geysermc.geyser.translator.protocol.java.level;
 
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.level.ClientboundSoundPacket;
-import com.nukkitx.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3f;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
@@ -38,6 +38,6 @@ public class JavaSoundTranslator extends PacketTranslator<ClientboundSoundPacket
     @Override
     public void translate(GeyserSession session, ClientboundSoundPacket packet) {
         Vector3f position = Vector3f.from(packet.getX(), packet.getY(), packet.getZ());
-        SoundUtils.playBuiltinSound(session, packet.getSound(), position, packet.getVolume(), packet.getPitch());
+        SoundUtils.playSound(session, packet.getSound(), position, packet.getVolume(), packet.getPitch());
     }
 }

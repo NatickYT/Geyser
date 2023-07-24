@@ -25,14 +25,14 @@
 
 package org.geysermc.geyser.translator.inventory;
 
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerSlotType;
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerType;
-import com.nukkitx.protocol.bedrock.data.inventory.StackRequestSlotInfoData;
-import com.nukkitx.protocol.bedrock.packet.ContainerSetDataPacket;
-import org.geysermc.geyser.inventory.Inventory;
-import org.geysermc.geyser.session.GeyserSession;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerSlotType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.itemstack.request.ItemStackRequestSlotData;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerSetDataPacket;
 import org.geysermc.geyser.inventory.BedrockContainerSlot;
+import org.geysermc.geyser.inventory.Inventory;
 import org.geysermc.geyser.inventory.updater.ContainerInventoryUpdater;
+import org.geysermc.geyser.session.GeyserSession;
 
 public class BrewingInventoryTranslator extends AbstractBlockInventoryTranslator {
     public BrewingInventoryTranslator() {
@@ -68,7 +68,7 @@ public class BrewingInventoryTranslator extends AbstractBlockInventoryTranslator
     }
 
     @Override
-    public int bedrockSlotToJava(StackRequestSlotInfoData slotInfoData) {
+    public int bedrockSlotToJava(ItemStackRequestSlotData slotInfoData) {
         if (slotInfoData.getContainer() == ContainerSlotType.BREWING_INPUT) {
             // Ingredient
             return 3;

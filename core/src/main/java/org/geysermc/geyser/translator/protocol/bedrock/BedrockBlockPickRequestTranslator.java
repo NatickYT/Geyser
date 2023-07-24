@@ -25,15 +25,21 @@
 
 package org.geysermc.geyser.translator.protocol.bedrock;
 
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.protocol.bedrock.packet.BlockPickRequestPacket;
+import com.github.steveice10.mc.protocol.data.game.entity.metadata.ItemStack;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.protocol.bedrock.packet.BlockPickRequestPacket;
 import org.geysermc.geyser.entity.EntityDefinitions;
 import org.geysermc.geyser.entity.type.ItemFrameEntity;
+import org.geysermc.geyser.level.block.BlockStateValues;
+import org.geysermc.geyser.registry.BlockRegistries;
+import org.geysermc.geyser.registry.type.BlockMapping;
+import org.geysermc.geyser.registry.type.ItemMapping;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
-import org.geysermc.geyser.level.block.BlockStateValues;
-import org.geysermc.geyser.registry.BlockRegistries;
 import org.geysermc.geyser.util.InventoryUtils;
 
 @Translator(packet = BlockPickRequestPacket.class)
@@ -61,6 +67,39 @@ public class BedrockBlockPickRequestTranslator extends PacketTranslator<BlockPic
             return;
         }
 
-        InventoryUtils.findOrCreateItem(session, BlockRegistries.JAVA_BLOCKS.get(blockToPick).getPickItem());
+        BlockMapping blockMapping = BlockRegistries.JAVA_BLOCKS.getOrDefault(blockToPick, BlockMapping.AIR);
+        boolean addNbtData = packet.isAddUserData() && blockMapping.isBlockEntity(); // Holding down CTRL
+        if (BlockStateValues.getBannerColor(blockToPick) != -1 || addNbtData) {
+            session.getGeyser().getWorldManager().getPickItemNbt(session, vector.getX(), vector.getY(), vector.getZ(), addNbtData)
+                    .whenComplete((tag, ex) -> session.ensureInEventLoop(() -> {
+                        if (tag == null) {
+                            pickItem(session, blockMapping);
+                            return;
+                        }
+
+                        if (addNbtData) {
+                            ListTag lore = new ListTag("Lore");
+                            lore.add(new StringTag("", "\"(+NBT)\""));
+                            CompoundTag display = tag.get("display");
+                            if (display == null) {
+                                display = new CompoundTag("display");
+                                tag.put(display);
+                            }
+                            display.put(lore);
+                        }
+                        // I don't really like this... I'd rather get an ID from the block mapping I think
+                        ItemMapping mapping = session.getItemMappings().getMapping(blockMapping.getPickItem());
+
+                        ItemStack itemStack = new ItemStack(mapping.getJavaItem().javaId(), 1, tag);
+                        InventoryUtils.findOrCreateItem(session, itemStack);
+                    }));
+            return;
+        }
+
+        pickItem(session, blockMapping);
+    }
+
+    private void pickItem(GeyserSession session, BlockMapping blockToPick) {
+        InventoryUtils.findOrCreateItem(session, blockToPick.getPickItem());
     }
 }

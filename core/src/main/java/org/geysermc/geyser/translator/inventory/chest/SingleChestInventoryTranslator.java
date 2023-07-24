@@ -25,11 +25,11 @@
 
 package org.geysermc.geyser.translator.inventory.chest;
 
-import com.nukkitx.protocol.bedrock.data.inventory.ContainerType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.geysermc.geyser.inventory.Inventory;
-import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.inventory.holder.BlockInventoryHolder;
 import org.geysermc.geyser.inventory.holder.InventoryHolder;
+import org.geysermc.geyser.session.GeyserSession;
 
 public class SingleChestInventoryTranslator extends ChestInventoryTranslator {
     private final InventoryHolder holder;
@@ -52,8 +52,8 @@ public class SingleChestInventoryTranslator extends ChestInventoryTranslator {
     }
 
     @Override
-    public void prepareInventory(GeyserSession session, Inventory inventory) {
-        holder.prepareInventory(this, session, inventory);
+    public boolean prepareInventory(GeyserSession session, Inventory inventory) {
+        return holder.prepareInventory(this, session, inventory);
     }
 
     @Override

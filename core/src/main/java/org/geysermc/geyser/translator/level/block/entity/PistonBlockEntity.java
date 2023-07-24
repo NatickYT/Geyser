@@ -26,27 +26,29 @@
 package org.geysermc.geyser.translator.level.block.entity;
 
 import com.github.steveice10.mc.protocol.data.game.level.block.value.PistonValueType;
-import com.nukkitx.math.vector.Vector3d;
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.math.vector.Vector3i;
-import com.nukkitx.nbt.NbtMap;
-import com.nukkitx.nbt.NbtMapBuilder;
-import com.nukkitx.protocol.bedrock.packet.UpdateBlockPacket;
+import org.cloudburstmc.math.vector.Vector3d;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.math.vector.Vector3i;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtMapBuilder;
+import org.cloudburstmc.protocol.bedrock.packet.UpdateBlockPacket;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import lombok.Getter;
-import org.geysermc.common.PlatformType;
+import org.geysermc.geyser.api.util.PlatformType;
+import org.geysermc.geyser.level.block.BlockStateValues;
 import org.geysermc.geyser.level.physics.Axis;
-import org.geysermc.geyser.level.physics.Direction;
-import org.geysermc.geyser.session.GeyserSession;
-import org.geysermc.geyser.session.cache.PistonCache;
 import org.geysermc.geyser.level.physics.BoundingBox;
 import org.geysermc.geyser.level.physics.CollisionManager;
-import org.geysermc.geyser.translator.collision.BlockCollision;
-import org.geysermc.geyser.level.block.BlockStateValues;
+import org.geysermc.geyser.level.physics.Direction;
 import org.geysermc.geyser.registry.Registries;
-import org.geysermc.geyser.util.*;
+import org.geysermc.geyser.session.GeyserSession;
+import org.geysermc.geyser.session.cache.PistonCache;
+import org.geysermc.geyser.translator.collision.BlockCollision;
+import org.geysermc.geyser.util.BlockEntityUtils;
+import org.geysermc.geyser.util.BlockUtils;
+import org.geysermc.geyser.util.ChunkUtils;
 
 import java.util.LinkedList;
 import java.util.Map;
@@ -221,7 +223,7 @@ public class PistonBlockEntity {
         int blockId = session.getGeyser().getWorldManager().getBlockAt(session, blockInFront);
         if (BlockStateValues.isPistonHead(blockId)) {
             ChunkUtils.updateBlock(session, BlockStateValues.JAVA_AIR_ID, blockInFront);
-        } else if (session.getGeyser().getPlatformType() == PlatformType.SPIGOT && blockId == BlockStateValues.JAVA_AIR_ID) {
+        } else if ((session.getGeyser().getPlatformType() == PlatformType.SPIGOT || session.getErosionHandler().isActive()) && blockId == BlockStateValues.JAVA_AIR_ID) {
             // Spigot removes the piston head from the cache, but we need to send the block update ourselves
             ChunkUtils.updateBlock(session, BlockStateValues.JAVA_AIR_ID, blockInFront);
         }
@@ -596,7 +598,7 @@ public class PistonBlockEntity {
             updateBlockPacket.getFlags().add(UpdateBlockPacket.Flag.NEIGHBORS);
             updateBlockPacket.getFlags().add(UpdateBlockPacket.Flag.NETWORK);
             updateBlockPacket.setBlockPosition(newPos);
-            updateBlockPacket.setRuntimeId(session.getBlockMappings().getBedrockMovingBlockId());
+            updateBlockPacket.setDefinition(session.getBlockMappings().getBedrockMovingBlock());
             updateBlockPacket.setDataLayer(0);
             session.sendUpstreamPacket(updateBlockPacket);
             // Update moving block with correct details
@@ -619,8 +621,6 @@ public class PistonBlockEntity {
         Vector3i movement = getMovement();
         attachedBlocks.forEach((blockPos, javaId) -> {
             blockPos = blockPos.add(movement);
-            // Send a final block entity packet to detach blocks
-            BlockEntityUtils.updateBlockEntity(session, buildMovingBlockTag(blockPos, javaId, Direction.DOWN.getUnitVector()), blockPos);
             // Don't place blocks that collide with the player
             if (!SOLID_BOUNDING_BOX.checkIntersection(blockPos.toDouble(), session.getCollisionManager().getPlayerBoundingBox())) {
                 ChunkUtils.updateBlock(session, javaId, blockPos);
@@ -737,8 +737,8 @@ public class PistonBlockEntity {
                 .putFloat("LastProgress", lastProgress)
                 .putByte("NewState", getState())
                 .putByte("State", getState())
-                .putByte("Sticky", (byte) (sticky ? 1 : 0))
-                .putByte("isMovable", (byte) 0)
+                .putBoolean("Sticky", sticky)
+                .putBoolean("isMovable", false)
                 .putInt("x", position.getX())
                 .putInt("y", position.getY())
                 .putInt("z", position.getZ());
@@ -760,8 +760,8 @@ public class PistonBlockEntity {
                 .putFloat("LastProgress", extended ? 1.0f : 0.0f)
                 .putByte("NewState", (byte) (extended ? 2 : 0))
                 .putByte("State", (byte) (extended ? 2 : 0))
-                .putByte("Sticky", (byte) (sticky ? 1 : 0))
-                .putByte("isMovable", (byte) 0)
+                .putBoolean("Sticky", sticky)
+                .putBoolean("isMovable", false)
                 .putInt("x", position.getX())
                 .putInt("y", position.getY())
                 .putInt("z", position.getZ());
@@ -778,11 +778,12 @@ public class PistonBlockEntity {
      */
     private NbtMap buildMovingBlockTag(Vector3i position, int javaId, Vector3i pistonPosition) {
         // Get Bedrock block state data
-        NbtMap movingBlock = session.getBlockMappings().getBedrockBlockStates().get(session.getBlockMappings().getBedrockBlockId(javaId));
+        NbtMap movingBlock = session.getBlockMappings().getBedrockBlock(javaId).getState();
         NbtMapBuilder builder = NbtMap.builder()
                 .putString("id", "MovingBlock")
+                .putBoolean("expanding", action == PistonValueType.PUSHING)
                 .putCompound("movingBlock", movingBlock)
-                .putByte("isMovable", (byte) 1)
+                .putBoolean("isMovable", true)
                 .putInt("pistonPosX", pistonPosition.getX())
                 .putInt("pistonPosY", pistonPosition.getY())
                 .putInt("pistonPosZ", pistonPosition.getZ())

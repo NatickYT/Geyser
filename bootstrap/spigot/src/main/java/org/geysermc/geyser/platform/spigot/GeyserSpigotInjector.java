@@ -115,10 +115,14 @@ public class GeyserSpigotInjector extends GeyserInjector {
 
         ChannelFuture channelFuture = (new ServerBootstrap()
                 .channel(LocalServerChannelWrapper.class)
-                .childHandler(new ChannelInitializer<Channel>() {
+                .childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) throws Exception {
                         initChannel.invoke(childHandler, ch);
+
+                        if (bootstrap.getGeyserConfig().isDisableCompression() && GeyserSpigotCompressionDisabler.ENABLED) {
+                            ch.pipeline().addAfter("encoder", "geyser-compression-disabler", new GeyserSpigotCompressionDisabler());
+                        }
                     }
                 })
                 // Set to MAX_PRIORITY as MultithreadEventLoopGroup#newDefaultThreadFactory which DefaultEventLoopGroup implements does by default
@@ -170,8 +174,8 @@ public class GeyserSpigotInjector extends GeyserInjector {
      */
     private void workAroundWeirdBug(GeyserBootstrap bootstrap) {
         MinecraftProtocol protocol = new MinecraftProtocol();
-        LocalSession session = new LocalSession(bootstrap.getGeyserConfig().getRemote().getAddress(),
-                bootstrap.getGeyserConfig().getRemote().getPort(), this.serverSocketAddress,
+        LocalSession session = new LocalSession(bootstrap.getGeyserConfig().getRemote().address(),
+                bootstrap.getGeyserConfig().getRemote().port(), this.serverSocketAddress,
                 InetAddress.getLoopbackAddress().getHostAddress(), protocol, protocol.createHelper());
         session.connect();
     }

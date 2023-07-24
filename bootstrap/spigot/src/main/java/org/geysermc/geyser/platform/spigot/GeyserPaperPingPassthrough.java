@@ -29,7 +29,7 @@ import com.destroystokyo.paper.event.server.PaperServerListPingEvent;
 import com.destroystokyo.paper.network.StatusClient;
 import com.destroystokyo.paper.profile.PlayerProfile;
 import org.bukkit.Bukkit;
-import org.geysermc.geyser.network.MinecraftProtocol;
+import org.geysermc.geyser.network.GameProtocol;
 import org.geysermc.geyser.ping.GeyserPingInfo;
 import org.geysermc.geyser.ping.IGeyserPingPassthrough;
 import org.jetbrains.annotations.NotNull;
@@ -59,14 +59,14 @@ public final class GeyserPaperPingPassthrough implements IGeyserPingPassthrough 
             // runtime because we still have to shade in our own Adventure class. For now.
             PaperServerListPingEvent event;
             if (OLD_CONSTRUCTOR != null) {
-                // Approximately pre-1.19
+                // 1.19, removed in 1.19.4
                 event = OLD_CONSTRUCTOR.newInstance(new GeyserStatusClient(inetSocketAddress),
                         Bukkit.getMotd(), Bukkit.getOnlinePlayers().size(),
-                        Bukkit.getMaxPlayers(), Bukkit.getVersion(), MinecraftProtocol.getJavaProtocolVersion(), null);
+                        Bukkit.getMaxPlayers(), Bukkit.getVersion(), GameProtocol.getJavaProtocolVersion(), null);
             } else {
                 event = new PaperServerListPingEvent(new GeyserStatusClient(inetSocketAddress),
-                        Bukkit.getMotd(), Bukkit.shouldSendChatPreviews(), Bukkit.getOnlinePlayers().size(),
-                        Bukkit.getMaxPlayers(), Bukkit.getVersion(), MinecraftProtocol.getJavaProtocolVersion(), null);
+                        Bukkit.getMotd(), Bukkit.getOnlinePlayers().size(),
+                        Bukkit.getMaxPlayers(), Bukkit.getVersion(), GameProtocol.getJavaProtocolVersion(), null);
             }
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
@@ -82,7 +82,7 @@ public final class GeyserPaperPingPassthrough implements IGeyserPingPassthrough 
             }
 
             GeyserPingInfo geyserPingInfo = new GeyserPingInfo(event.getMotd(), players,
-                    new GeyserPingInfo.Version(Bukkit.getVersion(), MinecraftProtocol.getJavaProtocolVersion()));
+                    new GeyserPingInfo.Version(Bukkit.getVersion(), GameProtocol.getJavaProtocolVersion()));
 
             if (!event.shouldHidePlayers()) {
                 for (PlayerProfile profile : event.getPlayerSample()) {
@@ -105,7 +105,7 @@ public final class GeyserPaperPingPassthrough implements IGeyserPingPassthrough 
 
         @Override
         public int getProtocolVersion() {
-            return MinecraftProtocol.getJavaProtocolVersion();
+            return GameProtocol.getJavaProtocolVersion();
         }
 
         @Override

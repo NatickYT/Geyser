@@ -28,9 +28,10 @@ package org.geysermc.geyser.translator.level.block.entity;
 import com.github.steveice10.mc.protocol.data.game.level.block.BlockEntityType;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.nukkitx.nbt.NbtMap;
-import com.nukkitx.nbt.NbtMapBuilder;
-import org.geysermc.geyser.network.MinecraftProtocol;
+import com.github.steveice10.opennbt.tag.builtin.Tag;
+import org.cloudburstmc.nbt.NbtMap;
+import org.cloudburstmc.nbt.NbtMapBuilder;
+import org.geysermc.geyser.network.GameProtocol;
 import org.geysermc.geyser.registry.Registries;
 import org.geysermc.geyser.registry.type.ItemMapping;
 
@@ -40,7 +41,7 @@ public class CampfireBlockEntityTranslator extends BlockEntityTranslator {
     public void translateTag(NbtMapBuilder builder, CompoundTag tag, int blockState) {
         ListTag items = tag.get("Items");
         int i = 1;
-        for (com.github.steveice10.opennbt.tag.builtin.Tag itemTag : items.getValue()) {
+        for (Tag itemTag : items.getValue()) {
             builder.put("Item" + i, getItem((CompoundTag) itemTag));
             i++;
         }
@@ -48,7 +49,7 @@ public class CampfireBlockEntityTranslator extends BlockEntityTranslator {
 
     protected NbtMap getItem(CompoundTag tag) {
         // TODO: Version independent mappings
-        ItemMapping mapping = Registries.ITEMS.forVersion(MinecraftProtocol.DEFAULT_BEDROCK_CODEC.getProtocolVersion()).getMapping((String) tag.get("id").getValue());
+        ItemMapping mapping = Registries.ITEMS.forVersion(GameProtocol.DEFAULT_BEDROCK_CODEC.getProtocolVersion()).getMapping((String) tag.get("id").getValue());
         NbtMapBuilder tagBuilder = NbtMap.builder()
                 .putString("Name", mapping.getBedrockIdentifier())
                 .putByte("Count", (byte) tag.get("Count").getValue())

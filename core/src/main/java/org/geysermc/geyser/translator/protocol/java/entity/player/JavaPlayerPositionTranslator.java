@@ -29,22 +29,17 @@ import com.github.steveice10.mc.protocol.data.game.entity.player.PositionElement
 import com.github.steveice10.mc.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerPositionPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.serverbound.level.ServerboundAcceptTeleportationPacket;
 import com.github.steveice10.mc.protocol.packet.ingame.serverbound.player.ServerboundMovePlayerPosRotPacket;
-import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.protocol.bedrock.data.entity.EntityLinkData;
-import com.nukkitx.protocol.bedrock.packet.ChunkRadiusUpdatedPacket;
-import com.nukkitx.protocol.bedrock.packet.MovePlayerPacket;
-import com.nukkitx.protocol.bedrock.packet.RespawnPacket;
-import com.nukkitx.protocol.bedrock.packet.SetEntityLinkPacket;
+import org.cloudburstmc.math.vector.Vector3f;
+import org.cloudburstmc.protocol.bedrock.packet.ChunkRadiusUpdatedPacket;
+import org.cloudburstmc.protocol.bedrock.packet.MovePlayerPacket;
+import org.cloudburstmc.protocol.bedrock.packet.RespawnPacket;
 import org.geysermc.geyser.entity.EntityDefinitions;
-import org.geysermc.geyser.entity.type.Entity;
 import org.geysermc.geyser.entity.type.player.SessionPlayerEntity;
 import org.geysermc.geyser.session.GeyserSession;
 import org.geysermc.geyser.session.cache.TeleportCache;
-import org.geysermc.geyser.text.GeyserLocale;
 import org.geysermc.geyser.translator.protocol.PacketTranslator;
 import org.geysermc.geyser.translator.protocol.Translator;
 import org.geysermc.geyser.util.ChunkUtils;
-import org.geysermc.geyser.util.EntityUtils;
 
 @Translator(packet = ClientboundPlayerPositionPacket.class)
 public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPlayerPositionPacket> {
@@ -85,7 +80,7 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
 
             acceptTeleport(session, packet.getX(), packet.getY(), packet.getZ(), packet.getYaw(), packet.getPitch(), packet.getTeleportId());
 
-            if (session.getServerRenderDistance() > 47 && !session.isEmulatePost1_13Logic()) {
+            if (session.getServerRenderDistance() > 32 && !session.isEmulatePost1_13Logic()) {
                 // See DimensionUtils for an explanation
                 ChunkRadiusUpdatedPacket chunkRadiusUpdatedPacket = new ChunkRadiusUpdatedPacket();
                 chunkRadiusUpdatedPacket.setRadius(session.getServerRenderDistance());
@@ -97,23 +92,9 @@ public class JavaPlayerPositionTranslator extends PacketTranslator<ClientboundPl
             ChunkUtils.updateChunkPosition(session, pos.toInt());
 
             if (session.getGeyser().getConfig().isDebugMode()) {
-                session.getGeyser().getLogger().debug(GeyserLocale.getLocaleStringLog("geyser.entity.player.spawn", packet.getX(), packet.getY(), packet.getZ()));
+                session.getGeyser().getLogger().debug("Spawned player at " + packet.getX() + " " + packet.getY() + " " + packet.getZ());
             }
             return;
-        }
-
-        Entity vehicle;
-        if (packet.isDismountVehicle() && (vehicle = session.getPlayerEntity().getVehicle()) != null) {
-            SetEntityLinkPacket linkPacket = new SetEntityLinkPacket();
-            linkPacket.setEntityLink(new EntityLinkData(vehicle.getGeyserId(), entity.getGeyserId(), EntityLinkData.Type.REMOVE, false, false));
-            session.sendUpstreamPacket(linkPacket);
-
-            vehicle.getPassengers().remove(entity);
-            session.getPlayerEntity().setVehicle(null);
-
-            EntityUtils.updateRiderRotationLock(entity, null, false);
-            EntityUtils.updateMountOffset(entity, null, false, false, entity.getPassengers().size() > 1);
-            entity.updateBedrockMetadata();
         }
 
         // If coordinates are relative, then add to the existing coordinate

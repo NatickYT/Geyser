@@ -25,10 +25,13 @@
 
 package org.geysermc.geyser.network.netty;
 
+import com.github.steveice10.mc.protocol.codec.MinecraftCodecHelper;
 import com.github.steveice10.packetlib.BuiltinFlags;
 import com.github.steveice10.packetlib.codec.PacketCodecHelper;
 import com.github.steveice10.packetlib.packet.PacketProtocol;
-import com.github.steveice10.packetlib.tcp.*;
+import com.github.steveice10.packetlib.tcp.TcpPacketCodec;
+import com.github.steveice10.packetlib.tcp.TcpPacketSizer;
+import com.github.steveice10.packetlib.tcp.TcpSession;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
@@ -50,7 +53,7 @@ public final class LocalSession extends TcpSession {
     private final String clientIp;
     private final PacketCodecHelper codecHelper;
 
-    public LocalSession(String host, int port, SocketAddress targetAddress, String clientIp, PacketProtocol protocol, PacketCodecHelper codecHelper) {
+    public LocalSession(String host, int port, SocketAddress targetAddress, String clientIp, PacketProtocol protocol, MinecraftCodecHelper codecHelper) {
         super(host, port, protocol);
         this.targetAddress = targetAddress;
         this.clientIp = clientIp;
@@ -106,8 +109,8 @@ public final class LocalSession extends TcpSession {
     }
 
     @Override
-    public PacketCodecHelper getCodecHelper() {
-        return this.codecHelper;
+    public MinecraftCodecHelper getCodecHelper() {
+        return (MinecraftCodecHelper) this.codecHelper;
     }
 
     // TODO duplicate code
